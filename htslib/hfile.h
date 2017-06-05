@@ -62,6 +62,7 @@ The usual `fopen(3)` _mode_ letters are supported: one of
 `:` (indicates scheme-specific variable arguments follow).
 */
 hFILE *hopen(const char *filename, const char *mode, ...) HTS_RESULT_USED;
+hFILE *hopen1(const char *filename, const char *mode, ...) HTS_RESULT_USED;  
 
 /// Associate a stream with an existing open file descriptor
 /** @return An hFILE pointer, or `NULL` (with _errno_ set) if an error occurred.

@@ -29,6 +29,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
+#include <unistd.h>
 
 #include <pthread.h>
 
@@ -92,6 +93,9 @@ read() method, and should just return EINVAL for seek():
 
 Use hfile_init_fixed() to create one of these.  */
 
+#define HOPEN_MAX_REPEAT 5
+#define HOPEN_SLEEP_SEC 1
+
 hFILE *hfile_init(size_t struct_size, const char *mode, size_t capacity)
 {
     hFILE *fp = (hFILE *) malloc(struct_size);
@@ -153,7 +157,7 @@ static inline int writebuffer_is_nonempty(hFILE *fp)
 /* Refills the read buffer from the backend (once, so may only partially
    fill the buffer), returning the number of additional characters read
    (which might be 0), or negative when an error occurred.  */
-static ssize_t refill_buffer(hFILE *fp)
+static ssize_t refill_buffer1(hFILE *fp)
 {
     ssize_t n;
 
@@ -175,6 +179,19 @@ static ssize_t refill_buffer(hFILE *fp)
 
     fp->end += n;
     return n;
+}
+
+static ssize_t refill_buffer(hFILE *fp)
+{
+  ssize_t i, ret;
+  for(i=0; i < HOPEN_MAX_REPEAT; ++i) {
+    ret = refill_buffer1(fp);
+    if ( ret >= 0 ) return ret;
+
+    fprintf(stderr,"[debug msg] refill_buffer1 failed %d times. Waiting %d second and retrying\n",(int)(i+1),HOPEN_SLEEP_SEC);
+    sleep(HOPEN_SLEEP_SEC);
+  }  
+  return ret;
 }
 
 /* Called only from hgetc(), when our buffer is empty.  */
@@ -856,15 +873,16 @@ static const struct hFILE_scheme_handler *find_scheme_handler(const char *s)
     return (k != kh_end(schemes))? kh_value(schemes, k) : &unknown_scheme;
 }
 
-hFILE *hopen(const char *fname, const char *mode, ...)
+hFILE *vhopen(const char *fname, const char *mode, va_list args0)
 {
     const struct hFILE_scheme_handler *handler = find_scheme_handler(fname);
     if (handler) {
         if (strchr(mode, ':') == NULL) return handler->open(fname, mode);
         else if (handler->priority >= 2000 && handler->vopen) {
-            hFILE *fp;
+            hFILE *fp = NULL;
             va_list arg;
-            va_start(arg, mode);
+	    va_copy(arg, args0);	    
+            //va_start(arg, mode);
             fp = handler->vopen(fname, mode, arg);
             va_end(arg);
             return fp;
@@ -874,6 +892,35 @@ hFILE *hopen(const char *fname, const char *mode, ...)
     else if (strcmp(fname, "-") == 0) return hopen_fd_stdinout(mode);
     else return hopen_fd(fname, mode);
 }
+
+hFILE *hopen1(const char* fname, const char* mode, ...) 
+{
+     hFILE *fp = NULL;
+     va_list arg;
+     va_start(arg, mode);
+     fp = vhopen(fname, mode, arg);
+     va_end(arg);
+     return fp;
+}
+
+hFILE *hopen(const char* fname, const char* mode, ...) 
+{
+     hFILE *fp = NULL;
+     int i;
+     va_list arg;
+     va_start(arg, mode);
+     for(i=0; i < HOPEN_MAX_REPEAT; ++i) {
+        fprintf(stderr,"[debug msg] Attempting hopen(%s,%s,..)...",fname,mode);
+        fp = vhopen(fname, mode, arg);
+        if ( fp != NULL ) break;
+        fprintf(stderr,"[debug msg] hopen(%s,%s,..) failed %d times. Waiting %d second and retrying\n",fname,mode,i+1,HOPEN_SLEEP_SEC);
+	sleep(HOPEN_SLEEP_SEC);
+     }
+     va_end(arg);
+     if ( fp ) fprintf(stderr,"[debug msg] Finished!\n");
+     return fp;
+}
+
 
 int hfile_always_local (const char *fname) { return 0; }
 int hfile_always_remote(const char *fname) { return 1; }
