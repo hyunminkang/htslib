@@ -189,7 +189,7 @@ static ssize_t refill_buffer(hFILE *fp)
     ret = refill_buffer1(fp);
     if ( ret > 0 ) return ret;
     else if ( ret == 0 ) {
-      fprintf(stderr,"[debug msg] refill_buffer1 did not read a single byte. Waiting %d second and retrying\n",(int)(i+1),HOPEN_SLEEP_SEC);
+      fprintf(stderr,"[debug msg] refill_buffer1 did not read a single byte at %d-th try. Waiting %d second and retrying\n",(int)(i+1),HOPEN_SLEEP_SEC);
       if ( i > 1 ) break;
       if ( tmp == (ssize_t)fp->at_eof ) break; 
       fp->at_eof = tmp;
