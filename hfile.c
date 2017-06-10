@@ -183,12 +183,20 @@ static ssize_t refill_buffer1(hFILE *fp)
 
 static ssize_t refill_buffer(hFILE *fp)
 {
-  ssize_t i, ret;
+  ssize_t i, ret, tmp;
   for(i=0; i < HOPEN_MAX_REPEAT; ++i) {
+    tmp = fp->at_eof;
     ret = refill_buffer1(fp);
-    if ( ret >= 0 ) return ret;
-
-    fprintf(stderr,"[debug msg] refill_buffer1 failed %d times. Waiting %d second and retrying\n",(int)(i+1),HOPEN_SLEEP_SEC);
+    if ( ret > 0 ) return ret;
+    else if ( ret == 0 ) {
+      fprintf(stderr,"[debug msg] refill_buffer1 did not read a single byte. Waiting %d second and retrying\n",(int)(i+1),HOPEN_SLEEP_SEC);
+      if ( i > 1 ) break;
+      if ( tmp == (ssize_t)fp->at_eof ) break; 
+      fp->at_eof = tmp;
+    } 
+    else {
+      fprintf(stderr,"[debug msg] refill_buffer1 failed %d times. Waiting %d second and retrying\n",(int)(i+1),HOPEN_SLEEP_SEC);
+    }
     sleep(HOPEN_SLEEP_SEC);
   }  
   return ret;
