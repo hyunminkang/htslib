@@ -210,7 +210,7 @@ enum hts_fmt_option {
     // CRAM specific
     CRAM_OPT_DECODE_MD,
     CRAM_OPT_PREFIX,
-    CRAM_OPT_VERBOSITY,  // make general
+    CRAM_OPT_VERBOSITY,  // obsolete, use hts_set_log_level() instead
     CRAM_OPT_SEQS_PER_SLICE,
     CRAM_OPT_SLICES_PER_CONTAINER,
     CRAM_OPT_RANGE,
@@ -235,6 +235,7 @@ enum hts_fmt_option {
     HTS_OPT_NTHREADS,
     HTS_OPT_THREAD_POOL,
     HTS_OPT_CACHE_SIZE,
+    HTS_OPT_BLOCK_SIZE,
 };
 
 // For backwards compatibility

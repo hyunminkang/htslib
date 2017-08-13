@@ -644,7 +644,7 @@ int bgzf_read_block(BGZF *fp)
 
         // block_length=0 and block_offset set by bgzf_seek.
         if (fp->block_length != 0) fp->block_offset = 0;
-        fp->block_address = j->block_address;
+        if (!j->hit_eof) fp->block_address = j->block_address;
         fp->block_clength = j->comp_len;
         fp->block_length = j->uncomp_len;
         // bgzf_read() can change fp->block_length
@@ -1038,6 +1038,9 @@ static int bgzf_check_EOF_common(BGZF *fp)
     off_t offset = htell(fp->fp);
     if (hseek(fp->fp, -28, SEEK_END) < 0) {
         if (errno == ESPIPE) { hclearerr(fp->fp); return 2; }
+#ifdef _WIN32
+        if (errno == EINVAL) { hclearerr(fp->fp); return 2; }
+#endif
         else return -1;
     }
     if ( hread(fp->fp, buf, 28) != 28 ) return -1;
@@ -1088,6 +1091,7 @@ restart:
     bgzf_job *j = pool_alloc(mt->job_pool);
     pthread_mutex_unlock(&mt->job_pool_m);
     j->errcode = 0;
+    j->comp_len = 0;
     j->uncomp_len = 0;
     j->hit_eof = 0;
 
@@ -1123,6 +1127,7 @@ restart:
         j = pool_alloc(mt->job_pool);
         pthread_mutex_unlock(&mt->job_pool_m);
         j->errcode = 0;
+        j->comp_len = 0;
         j->uncomp_len = 0;
         j->hit_eof = 0;
     }
@@ -1177,6 +1182,7 @@ restart:
             pthread_exit(NULL);
         }
     }
+    return NULL;
 }
 
 int bgzf_thread_pool(BGZF *fp, hts_tpool *pool, int qsize) {
@@ -1884,4 +1890,9 @@ int bgzf_useek(BGZF *fp, long uoffset, int where)
 long bgzf_utell(BGZF *fp)
 {
     return fp->uncompressed_address;    // currently maintained only when reading
+}
+
+/* prototype is in hfile_internal.h */
+struct hFILE *bgzf_hfile(struct BGZF *fp) {
+    return fp->fp;
 }

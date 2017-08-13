@@ -67,6 +67,10 @@ hFILE *hopen1(const char *filename, const char *mode, ...) HTS_RESULT_USED;
 /// Associate a stream with an existing open file descriptor
 /** @return An hFILE pointer, or `NULL` (with _errno_ set) if an error occurred.
 
+Note that the file must be opened in binary mode, or else
+there will be problems on platforms that make a difference
+between text and binary mode.
+
 For socket descriptors (on Windows), _mode_ should contain `s`.
 */
 hFILE *hdopen(int fd, const char *mode) HTS_RESULT_USED;
